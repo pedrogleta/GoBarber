@@ -1,43 +1,37 @@
-import { Router } from 'express';
-import { uuid } from 'uuidv4';
-import { startOfHour, parseISO, isEqual } from 'date-fns';
+import { Router } from 'express'
+import { getCustomRepository } from 'typeorm'
+import { startOfHour, parseISO } from 'date-fns'
 
-const appointmentsRouter = Router();
+import AppointmentsRepository from '../repositories/AppointmentsRepository'
+import CreateAppointmentService from '../services/CreateAppointmentService'
 
-interface Appointment {
-  id: string;
-  provider: string;
-  date: Date;
-}
+const appointmentsRouter = Router()
 
-const appointments: Appointment[] = [];
+appointmentsRouter.get('/', (request, response) => {
+  const appointmentsRepository = getCustomRepository(AppointmentsRepository)
+  const appointments = appointmentsRepository.find()
 
-appointmentsRouter.post('/', (request, response) => {
-  const { provider, date } = request.body;
+  return response.json(appointments)
+})
 
-  const parsedDate = startOfHour(parseISO(date));
+appointmentsRouter.post('/', async (request, response) => {
+  try {
+    const { provider, date } = request.body
 
-  const findAppointmentInSameDate = appointments.find(appointment =>
-    isEqual(parsedDate, appointment.date),
-  );
+    const parsedDate = startOfHour(parseISO(date))
 
-  if (findAppointmentInSameDate) {
-    return response
-      .status(400)
-      .json({ message: 'This appointment is already booked' });
+    const createAppointment = new CreateAppointmentService()
+
+    const appointment = await createAppointment.execute({
+      date: parsedDate,
+      provider,
+    })
+    console.log('tudo otimo')
+
+    return response.json(appointment)
+  } catch (err) {
+    return response.status(400).json({ error: err.message })
   }
+})
 
-  const appointment = {
-    id: uuid(),
-    provider,
-    date: parsedDate,
-  };
-
-  console.log('oi');
-
-  appointments.push(appointment);
-
-  return response.json({ appointment });
-});
-
-export default appointmentsRouter;
+export default appointmentsRouter
